@@ -1,0 +1,4 @@
+interface:
+  display_name: "Notion Manager Safe"
+  short_description: "Safely manage Notion records through the REST API"
+  default_prompt: "Use $notion-manager-safe to resolve the Notion data source through the REST API, draft the exact change, and wait for my approval before writing."
