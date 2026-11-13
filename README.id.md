@@ -119,6 +119,30 @@ Content-Type: application/json
 
 Jangan gunakan placeholder tersebut sebagai kredensial. Baca [panduan keamanan kredensial Notion](https://developers.notion.com/guides/authorization/credential-security).
 
+## Gunakan REST helper
+
+Repo ini menyertakan `scripts/notion_api.py`, CLI kecil untuk Python 3.10+ yang hanya memakai standard library. Script membaca `NOTION_API_KEY` dari environment proses saat ini; tidak perlu memasang package.
+
+```powershell
+python scripts/notion_api.py search "Project Notes" --object data_source
+python scripts/notion_api.py get_database "<verified_database_id>"
+python scripts/notion_api.py get_data_source "<verified_data_source_id>"
+python scripts/notion_api.py query_data_source "<verified_data_source_id>"
+python scripts/notion_api.py get_page "<verified_page_id>"
+python scripts/notion_api.py get_block_children "<verified_page_id>"
+```
+
+`search` dan `query_data_source` mengembalikan satu halaman respons, termasuk `has_more` dan `next_cursor` jika tersedia. Teruskan cursor ke pemanggilan berikutnya dengan `--start-cursor` dan pertahankan filter query yang sama. Untuk filter atau sort query, berikan body JSON dengan `--payload-file <path>`.
+
+Write memerlukan file payload UTF-8 dan `--confirm`:
+
+```powershell
+python scripts/notion_api.py create_page --payload-file "C:\private\notion-create.json" --confirm
+python scripts/notion_api.py update_page "<verified_page_id>" --payload-file "C:\private\notion-update.json" --confirm
+```
+
+Helper mengharuskan file payload berada di luar repo, memeriksa bentuk target, mengirim write satu kali, lalu membaca ulang page. Jika payload create berisi `markdown` atau `children`, helper juga membaca block page dan mengembalikan field pagination bila hasilnya lebih dari satu halaman. Helper tidak otomatis mengulang write, menghapus page, atau mengarsipkan konten. `--confirm` adalah pengaman kedua, bukan pengganti menampilkan perubahan yang tepat dan meminta persetujuan pengguna. Output command dapat berisi konten Notion privat; tangani respons dengan hati-hati. Jika hasil write tidak jelas, periksa target sebelum retry.
+
 ## Contoh: temukan data source
 
 Gunakan judul database yang tepat atau cukup khas, sesuai yang diberikan pengguna. Request read-only ini mencari data source yang dapat diakses oleh kredensial:
@@ -338,11 +362,11 @@ Contoh menggunakan konten workspace fiktif. Temukan tujuan dan schema aktual, la
 
 Notion juga menyediakan remote MCP resmi di `https://mcp.notion.com/mcp`. REST tetap menjadi default. Gunakan MCP hanya jika REST tidak tersedia, gagal autentikasi/koneksi, tidak dapat menangani operasi dengan aman, atau pengguna secara eksplisit meminta MCP. Jangan berpindah transport diam-diam; laporkan fallback dan rekonsiliasi state sebelum retry write.
 
-Repo ini saat ini menyediakan instruksi agent dan contoh request; belum menyertakan REST helper atau CLI. Helper dapat ditambahkan terpisah untuk menangani request berulang tanpa mengubah aturan skill tentang pencarian tujuan, pemeriksaan schema, persetujuan, dan verifikasi.
+Helper menangani transport dan read-back rutin. Skill tetap mengatur penemuan target, pemeriksaan schema dan duplikat, review draft, persetujuan, serta keputusan verifikasi.
 
 ## Pasang sebagai agent skill
 
-Clone repo ini, lalu salin `SKILL.md` dan folder `agents/` ke direktori skill yang digunakan client-mu:
+Clone repo ini, lalu salin `SKILL.md`, folder `scripts/`, dan `agents/` ke direktori skill yang digunakan client-mu:
 
 | Agent | Direktori skill personal |
 |---|---|
@@ -350,13 +374,14 @@ Clone repo ini, lalu salin `SKILL.md` dan folder `agents/` ke direktori skill ya
 | Claude Code | `~/.claude/skills/notion-manager-safe/` |
 | OpenCode | `~/.config/opencode/skills/notion-manager-safe/` |
 
-Lokasi dan cara menemukan skill bisa berubah; periksa dokumentasi agent jika skill tidak terbaca. Memasang skill tidak membuat PAT atau memberi akses ke workspace.
+Lokasi dan cara menemukan skill bisa berubah; periksa dokumentasi agent jika skill tidak terbaca. Setelah instalasi, panggil helper menggunakan absolute path di dalam folder skill agar dapat dipakai dari project lain. Memasang skill tidak membuat PAT atau memberi akses ke workspace.
 
 ## Struktur repo
 
 | Path | Fungsi |
 |---|---|
 | `SKILL.md` | Instruksi agent dan workflow REST |
+| `scripts/notion_api.py` | Helper REST standard library untuk search, read, create/update terjaga, dan read-back |
 | `agents/openai.yaml` | Metadata antarmuka agent opsional |
 | `README.md` | Dokumentasi bahasa Inggris |
 | `README.id.md` | Dokumentasi Bahasa Indonesia |

@@ -119,6 +119,30 @@ Content-Type: application/json
 
 Do not copy the placeholder as a real credential. See [Notion's credential security guide](https://developers.notion.com/guides/authorization/credential-security).
 
+## Use the REST helper
+
+The repository includes `scripts/notion_api.py`, a small Python 3.10+ CLI that uses only the standard library. It reads `NOTION_API_KEY` from the current process environment; there is no package installation step.
+
+```powershell
+python scripts/notion_api.py search "Project Notes" --object data_source
+python scripts/notion_api.py get_database "<verified_database_id>"
+python scripts/notion_api.py get_data_source "<verified_data_source_id>"
+python scripts/notion_api.py query_data_source "<verified_data_source_id>"
+python scripts/notion_api.py get_page "<verified_page_id>"
+python scripts/notion_api.py get_block_children "<verified_page_id>"
+```
+
+`search` and `query_data_source` return one response page, including `has_more` and `next_cursor` when present. Pass the cursor to the next call with `--start-cursor`; keep the same query filters. For query filters or sorts, provide a JSON request body with `--payload-file <path>`.
+
+Writes require a UTF-8 JSON payload file and `--confirm`:
+
+```powershell
+python scripts/notion_api.py create_page --payload-file "C:\private\notion-create.json" --confirm
+python scripts/notion_api.py update_page "<verified_page_id>" --payload-file "C:\private\notion-update.json" --confirm
+```
+
+The helper requires payload files to be outside this repository, checks the target shape, sends the write once, then reads the page back. If a create payload includes `markdown` or `children`, it also reads the page's blocks and returns pagination fields when more than one block page exists. It does not automatically retry writes, delete pages, or archive content. `--confirm` is a second guard, not a replacement for showing the exact proposed change and obtaining user approval. Payload files and command output may contain private Notion content; handle responses accordingly. If a write result is unclear, inspect the target before retrying.
+
 ## Example: discover a data source
 
 Use the exact or distinctive database title supplied by the user. This read-only request searches only data sources the credential can access:
@@ -339,11 +363,11 @@ The example uses fictional workspace content. Resolve the live destination and s
 
 Notion also offers an official remote MCP server at `https://mcp.notion.com/mcp`. REST remains the default. Use MCP only if REST is unavailable, fails authentication/connectivity, cannot safely handle the needed operation, or the user explicitly requests MCP. Do not silently switch transports; report the fallback and reconcile state before retrying a write.
 
-This repository currently provides the agent instructions and request examples; it does not include a REST helper or CLI. A helper can be added separately for repeatable request handling without changing the skill's rules for target discovery, schema checks, approval, and verification.
+The helper handles routine transport and read-back. The skill still owns target discovery, schema checks, duplicate checks, draft review, approval, and verification decisions.
 
 ## Install as an agent skill
 
-Clone this repository, then copy `SKILL.md` and `agents/` into the skill directory used by your client:
+Clone this repository, then copy `SKILL.md`, `scripts/`, and `agents/` into the skill directory used by your client:
 
 | Agent | Personal skill directory |
 |---|---|
@@ -351,13 +375,14 @@ Clone this repository, then copy `SKILL.md` and `agents/` into the skill directo
 | Claude Code | `~/.claude/skills/notion-manager-safe/` |
 | OpenCode | `~/.config/opencode/skills/notion-manager-safe/` |
 
-Skill discovery and paths can change; check your agent's current documentation if it does not load the skill. Installing the skill does not create a PAT or grant workspace access.
+Skill discovery and paths can change; check your agent's current documentation if it does not load the skill. When installed, invoke the helper by its absolute path inside the skill directory so it works from another project. Installing the skill does not create a PAT or grant workspace access.
 
 ## Repository files
 
 | Path | Purpose |
 |---|---|
 | `SKILL.md` | Agent instructions and REST workflow |
+| `scripts/notion_api.py` | Standard-library REST helper for search, reads, guarded create/update, and read-back |
 | `agents/openai.yaml` | Optional agent interface metadata |
 | `README.md` | English documentation |
 | `README.id.md` | Indonesian documentation |

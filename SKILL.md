@@ -13,6 +13,7 @@ Use this skill when the user asks to create, update, or inspect general Notion c
 - Authenticate with `NOTION_API_KEY` from the process environment. Never ask the user to paste a token into chat, put a token in a command argument, or print it to inspect whether it is set. If no safe credential is available, explain how to configure one outside the repository.
 - Use only documented API endpoints. Do not scrape Notion's website or call undocumented/internal endpoints.
 - Include `Authorization: Bearer ...`, `Notion-Version`, and `Content-Type: application/json` for JSON requests. Check Notion's current versioning reference before changing the version used by a client.
+- When this repository is installed, prefer `scripts/notion_api.py` for its supported search, read, query, create, and property-update operations. Direct cURL or PowerShell REST calls remain available when needed.
 - Keep REST as the default. Use Notion MCP only if REST is unavailable, fails authentication/connectivity, or cannot safely handle the required operation, unless the user explicitly requests MCP. Never switch transports silently; explain the fallback and reconcile state before retrying a write.
 
 ## Workflow
@@ -94,9 +95,35 @@ Update an existing page using `PATCH /v1/pages/{verified_page_id}`. Include only
 
 The property names and value objects must match the live schema. For example, use the `status` value shape for a `status` property, not the `select` shape. Verify the resulting page after the request.
 
-## Complete REST requests
+## Local REST helper
 
-The repository does not include a helper or CLI. Use the documented REST API directly; do not assume a project-specific script exists. These cURL examples include URL, headers, and body. Replace every placeholder from the live schema and approved draft before use:
+The helper is `scripts/notion_api.py` and uses Python's standard library. Find the directory containing this `SKILL.md` and invoke the helper by its absolute path; do not assume the current working directory is the skill directory.
+
+Read and search commands do not mutate Notion:
+
+```text
+python "<skill_dir>/scripts/notion_api.py" search "<title>" --object data_source
+python "<skill_dir>/scripts/notion_api.py" get_database "<verified_database_id>"
+python "<skill_dir>/scripts/notion_api.py" get_data_source "<verified_data_source_id>"
+python "<skill_dir>/scripts/notion_api.py" query_data_source "<verified_data_source_id>"
+python "<skill_dir>/scripts/notion_api.py" get_page "<verified_page_id>"
+python "<skill_dir>/scripts/notion_api.py" get_block_children "<verified_page_id>"
+```
+
+Writes require a UTF-8 JSON payload file outside the repository and `--confirm`:
+
+```text
+python "<skill_dir>/scripts/notion_api.py" create_page --payload-file "<payload_path>" --confirm
+python "<skill_dir>/scripts/notion_api.py" update_page "<verified_page_id>" --payload-file "<payload_path>" --confirm
+```
+
+Show the exact target and payload and obtain user approval before adding `--confirm`. The flag is an extra script guard, not consent. The helper sends each write once and reads the page back. For create payloads containing `markdown` or `children`, it also reads the page blocks; check pagination if `has_more` is true. If a request times out or returns an ambiguous server error, inspect the target before considering a retry. Its output may contain private workspace content; return only information relevant to the user.
+
+The helper's `search` and `query_data_source` commands return one API page at a time. Pass `next_cursor` to the next call with `--start-cursor`; use the same filters. For query filters or sorts, place the API query body in a UTF-8 JSON file and pass `--payload-file`.
+
+## Direct REST request examples
+
+Use documented REST calls directly when the helper is not installed or does not support the operation. These cURL examples include URL, headers, and body. Replace every placeholder from the live schema and approved draft before use:
 
 ```sh
 curl -X POST 'https://api.notion.com/v1/pages' \

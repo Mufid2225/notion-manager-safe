@@ -8,4 +8,4 @@ If private vulnerability reporting is unavailable, contact the maintainer throug
 
 ## Scope
 
-This project is an agent skill that uses Notion's official REST API as its primary transport and the official Notion MCP server as an optional fallback. Reports about unsafe mutations, bypassing user confirmation, mishandling private workspace content, or credential exposure are relevant.
+This project is an agent skill and local Python helper that use Notion's official REST API as the primary transport and the official Notion MCP server as an optional fallback. Reports about unsafe mutations, bypassing user confirmation, mishandling private workspace content, or credential exposure are relevant.
